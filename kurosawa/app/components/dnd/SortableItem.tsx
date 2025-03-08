@@ -6,13 +6,15 @@ import { cn } from "~/lib/utils";
 import { Button } from "../ui/button";
 import { GripVertical } from "lucide-react";
 import { Task } from "@prisma/client";
+import { useEffect } from "react";
 
 interface IProps {
   type: string;
   item: Task;
+  onBlurDragging: () => void;
 }
 
-export function SortableItem({ item, type }: IProps) {
+export function SortableItem({ item, type, onBlurDragging }: IProps) {
   const {
     setNodeRef,
     attributes,
@@ -29,7 +31,6 @@ export function SortableItem({ item, type }: IProps) {
     attributes: {
       roleDescription: type,
     },
-    resizeObserverConfig: {},
   });
 
   const style = {
@@ -46,25 +47,30 @@ export function SortableItem({ item, type }: IProps) {
     },
   });
 
+  useEffect(() => {
+    if (!isDragging) {
+      onBlurDragging();
+    }
+  }, [isDragging]);
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex flex-row w-full items-center m-2 p-2 gap-3",
+        "flex flex-row w-full items-center p-2 gap-3",
         variants({ dragging: isDragging ? "over" : undefined })
       )}
     >
-      <Button
-        variant={"ghost"}
+      <div
         {...attributes}
         {...listeners}
-        className="p-1 text-secendary-foreground/50 -ml-2 h-auth cursor-grab"
+        className="flex flex-row p-1 text-secendary-foreground/50 -ml-2 h-auth cursor-grab"
       >
         <span className="sr-only">MOVE</span>
-
+        <GripVertical />
         <p className="text-lg font-medium">{item.title}</p>
-      </Button>
+      </div>
     </div>
   );
 }

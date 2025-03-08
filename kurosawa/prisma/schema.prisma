@@ -29,12 +29,16 @@ model Task {
  description String?
  details  String?
  startDate DateTime @default(now())
- endDate DateTime?
+ // 期限
+ endDate DateTime
 
  userId String
  User   User @relation(fields: [userId], references: [id])
 
- inDone Boolean @default(false)
+ orderNo String?
+ // todo doing done
+ status String
+
  isDeleted Boolean @default(false)
 
  createdAt DateTime @default(now())

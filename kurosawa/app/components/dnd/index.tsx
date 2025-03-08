@@ -10,7 +10,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   arrayMove,
   SortableContext,
@@ -19,14 +19,16 @@ import {
 import { ClientOnly } from "remix-utils/client-only";
 import { SortableItem } from "./SortableItem";
 import { Task } from "@prisma/client";
+import { cn } from "~/lib/utils";
 
 interface IProps {
   type: string;
-  defaultTask: Task[];
+  tasks: Task[];
   onChangeSort: (item: Task[]) => void;
+  onBlurDragging: () => void;
 }
 
-const variants = cva("px-2 md:px-0 flex lg:justify-center pb-4", {
+const variations = cva("px-2 md:px-0 flex lg:justify-center pb-4", {
   variants: {
     dragging: {
       default: "snap-x snap-mandatory",
@@ -35,10 +37,14 @@ const variants = cva("px-2 md:px-0 flex lg:justify-center pb-4", {
   },
 });
 
-export function DnDContainer({ type, defaultTask, onChangeSort }: IProps) {
+export function DnDContainer({
+  type,
+  tasks,
+  onChangeSort,
+  onBlurDragging,
+}: IProps) {
   const dndContext = useDndContext();
 
-  const [tasks, setTasks] = useState<Task[]>(defaultTask);
   const itemIds = useMemo(() => {
     return tasks.map((item) => item.id);
   }, [tasks]);
@@ -55,8 +61,10 @@ export function DnDContainer({ type, defaultTask, onChangeSort }: IProps) {
     if (!over) return;
     const activeId = active.id;
     const overId = over.id;
+    console.log("DragOver");
 
     if (activeId === overId) return;
+    console.log("🚀");
 
     const activeData = active.data.current;
     const overData = over.data.current;
@@ -64,15 +72,18 @@ export function DnDContainer({ type, defaultTask, onChangeSort }: IProps) {
     const isActiveTask = activeData?.type === type;
     const isOverTask = overData?.type === type;
 
-    if (!isActiveTask) return;
+    console.log("🚀🚀");
 
-    if (!isActiveTask && isOverTask) {
+    if (!isActiveTask) return;
+    console.log("🚀🚀🚀");
+
+    if (isActiveTask && isOverTask) {
       const prev = structuredClone(tasks);
       const oldIndex = prev.map((p) => p.id).indexOf(activeId as string);
       const newIndex = prev.map((n) => n.id).indexOf(overId as string);
 
       const newItems = arrayMove(prev, oldIndex, newIndex);
-      setTasks(newItems);
+      console.log("🚀 ~ onDragOver ~ newItems:", newItems);
       onChangeSort(newItems);
     }
   }
@@ -81,11 +92,25 @@ export function DnDContainer({ type, defaultTask, onChangeSort }: IProps) {
     <ClientOnly>
       {() => (
         <DndContext onDragOver={onDragOver} sensors={sensors}>
-          <SortableContext items={tasks}>
-            {tasks.map((item) => (
-              <SortableItem key={item.id} type={type} item={item} />
-            ))}
-          </SortableContext>
+          <div
+            className={cn(
+              "flex flex-col gap-2",
+              variations({
+                dragging: dndContext.active ? "active" : "default",
+              })
+            )}
+          >
+            <SortableContext items={itemIds}>
+              {tasks.map((item) => (
+                <SortableItem
+                  key={item.id}
+                  type={type}
+                  item={item}
+                  onBlurDragging={onBlurDragging}
+                />
+              ))}
+            </SortableContext>
+          </div>
         </DndContext>
       )}
     </ClientOnly>
