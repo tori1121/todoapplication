@@ -1,8 +1,9 @@
+import { addDay } from "@formkit/tempo";
 import { Task } from "@prisma/client";
 import { ActionFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData, useSubmit } from "@remix-run/react";
 import { CircleX, DeleteIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DnDContainer } from "~/components/dnd";
 import { DnDItem } from "~/components/dnd/type";
 import { TaskCard } from "~/components/TaskCard";
@@ -13,7 +14,9 @@ import { Input } from "~/components/ui/input";
 import { prisma } from "~/lib/prisma";
 
 export async function loader() {
-  const tasks = await prisma.task.findMany({});
+  const tasks = await prisma.task.findMany({
+    orderBy: { orderNo: "asc" },
+  });
   const user = await prisma.user.findUnique({
     where: { id: "1" },
   });
@@ -23,10 +26,8 @@ export async function loader() {
 
 export default function TorigoshiPage() {
   const { tasks, user } = useLoaderData<typeof loader>();
-
-  const submit = useSubmit();
-
   const [taskList, setTaskList] = useState<Task[]>(tasks);
+  const submit = useSubmit();
 
   const handleAddTask = (title: string) => {
     const formData = new FormData();
@@ -41,6 +42,24 @@ export default function TorigoshiPage() {
     formData.append("taskId", taskId);
     submit(formData, { method: "post" });
   };
+
+  const handleSortTask = (tasks: Task[]) => {
+    const sortData = tasks.map((task, index) => ({
+      ...task,
+      orderNo: String(index + 1),
+    }));
+    console.log("🚀 ~ sortData ~ sortData:", sortData);
+
+    const formData = new FormData();
+    formData.append("intent", "sort");
+    formData.append("sortData", JSON.stringify(sortData));
+    submit(formData, { method: "post" });
+  };
+
+  useEffect(() => {
+    setTaskList(tasks);
+  }, [tasks]);
+
   return (
     <div className="h-screen w-full">
       <header className="bg-slate-600 h-10 flex justify-center items-center px-6">
@@ -60,8 +79,9 @@ export default function TorigoshiPage() {
           <CardContent className="flex flex-col gap-2">
             <DnDContainer
               type="today"
-              defaultTask={taskList}
+              tasks={tasks}
               onChangeSort={(sorted) => setTaskList(sorted)}
+              onBlurDragging={() => handleSortTask(taskList)}
             />
 
             <Input
@@ -86,12 +106,16 @@ export async function action({ request }: ActionFunctionArgs) {
   const intent = formData.get("intent") as string;
   const title = formData.get("title") as string;
   const taskId = formData.get("taskId") as string;
+  const sortData = JSON.parse(formData.get("sortData") as string) as Task[];
 
   if (intent === "create") {
     await prisma.task.create({
       data: {
         title: title,
         userId: "1",
+        orderNo: String(new Date().getTime()),
+        endDate: addDay(new Date(), 7),
+        status: "todo",
       },
     });
   }
@@ -99,6 +123,16 @@ export async function action({ request }: ActionFunctionArgs) {
     await prisma.task.delete({
       where: { id: taskId },
     });
+  }
+
+  if (intent === "sort") {
+    for await (const task of sortData) {
+      console.log("🚀 ~ forawait ~ task:", task.id, task.orderNo);
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { orderNo: task.orderNo },
+      });
+    }
   }
 
   return null;
